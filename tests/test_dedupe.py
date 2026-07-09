@@ -42,6 +42,14 @@ class DedupeTests(unittest.TestCase):
 
         self.assertEqual(len(deduplicate_postings(postings)), 1)
 
+    def test_preserves_distinct_stable_query_identifiers(self):
+        postings = [
+            make_posting(external_id="1", url="https://example.com/jobs/relay/view?rec_idx=1&utm_source=a"),
+            make_posting(external_id="2", url="https://example.com/jobs/relay/view?rec_idx=2&utm_source=a"),
+        ]
+
+        self.assertEqual(len(deduplicate_postings(postings)), 2)
+
     def test_preserves_first_seen_order(self):
         first = make_posting(external_id="1", url="https://example.com/jobs/1")
         second = make_posting(external_id="2", url="https://example.com/jobs/2")

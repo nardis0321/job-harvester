@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import List
 
+from src.collectors.base import BaseCollector
 from src.models import JobPosting
 
 
-class MockJobCollector:
+class MockJobCollector(BaseCollector):
     source = "mock"
 
-    def collect(self) -> List[JobPosting]:
+    def collect(self, query: str = "", max_pages: int = 1) -> List[JobPosting]:
         return [
             JobPosting(
                 source=self.source,

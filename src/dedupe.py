@@ -26,22 +26,10 @@ def _dedupe_key(posting: JobPosting) -> Tuple[str, ...]:
         return ("url", _normalize_url(posting.url))
 
     if posting.source and posting.external_id:
-        return ("source_id", _normalize_text(posting.source), _normalize_text(posting.external_id))
-
-    return (
-        "fallback",
-        _normalize_text(posting.company),
-        _normalize_text(posting.title),
-        _normalize_text(posting.location),
-    )
+        return ("source_id", posting.source, posting.external_id)
 
 
 def _normalize_url(url: str) -> str:
     parsed = urlsplit(url.strip())
     path = parsed.path.rstrip("/")
     return urlunsplit((parsed.scheme.casefold(), parsed.netloc.casefold(), path, "", ""))
-
-
-def _normalize_text(value: str) -> str:
-    return re.sub(r"\s+", " ", value.casefold()).strip()
-

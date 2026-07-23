@@ -1,6 +1,7 @@
 import unittest
+from urllib.parse import parse_qs, urlparse
 
-from src.collectors.saramin import parse_saramin_search_html
+from src.collectors.saramin import build_saramin_category_url, parse_saramin_search_html
 from src.main import collect_jobs
 
 
@@ -39,6 +40,21 @@ SARAMIN_SEARCH_HTML = """
 
 
 class CollectorTests(unittest.TestCase):
+    def test_saramin_category_url_uses_configured_filters_and_page(self):
+        url = build_saramin_category_url(3)
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+
+        self.assertEqual(parsed.path, "/zf_user/jobs/list/job-category")
+        self.assertEqual(params["cat_kewd"], ["84"])
+        self.assertEqual(params["exp_cd"], ["1,2"])
+        self.assertEqual(params["exp_max"], ["1"])
+        self.assertEqual(params["exp_none"], ["y"])
+        self.assertEqual(params["edu_max"], ["11"])
+        self.assertEqual(params["edu_none"], ["y"])
+        self.assertEqual(params["loc_mcd"], ["101000,102000,106000"])
+        self.assertEqual(params["recruitPage"], ["3"])
+
     def test_saramin_parser_normalizes_search_result_item(self):
         postings = parse_saramin_search_html(SARAMIN_SEARCH_HTML)
 

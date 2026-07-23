@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--query",
         default="",
-        help="Search query for real collectors. Saramin uses backend junior defaults when omitted.",
+        help="Optional search query for collectors that support one. Saramin ignores this and uses category filters.",
     )
     parser.add_argument(
         "--max-pages",

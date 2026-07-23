@@ -7,7 +7,7 @@ import time
 from html.parser import HTMLParser
 from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
 from src.collectors.base import BaseCollector
@@ -17,8 +17,16 @@ from src.models import JobPosting
 LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://www.saramin.co.kr"
-SEARCH_URL = f"{BASE_URL}/zf_user/search/recruit"
-DEFAULT_QUERIES = ["백엔드 신입", "백엔드 주니어", "backend junior"]
+JOB_CATEGORY_URL = (
+    f"{BASE_URL}/zf_user/jobs/list/job-category"
+    "?cat_kewd=84"
+    "&exp_cd=1%2C2"
+    "&exp_max=1"
+    "&exp_none=y"
+    "&edu_max=11"
+    "&edu_none=y"
+    "&loc_mcd=101000%2C102000%2C106000"
+)
 DEFAULT_TIMEOUT_SECONDS = 10
 DEFAULT_DELAY_SECONDS = 0.7
 
@@ -84,30 +92,31 @@ class SaraminCollector(BaseCollector):
         self.delay_seconds = delay_seconds
 
     def collect(self, query: str = "", max_pages: int = 1) -> List[JobPosting]:
-        queries = [query] if query else DEFAULT_QUERIES
         postings: List[JobPosting] = []
 
-        for query_index, search_query in enumerate(queries):
-            for page in range(1, max(1, max_pages) + 1):
-                try:
-                    html = self._fetch_search_page(search_query, page)
-                    postings.extend(parse_saramin_search_html(html))
-                except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError) as error:
-                    LOGGER.warning("Saramin request failed for query=%r page=%s: %s", search_query, page, error)
-                    return []
-                except Exception as error:
-                    LOGGER.warning("Saramin parsing failed for query=%r page=%s: %s", search_query, page, error)
-                    return []
+        if query:
+            LOGGER.info("Saramin collector ignores query=%r and uses the configured job-category filters.", query)
 
-                if page < max_pages or query_index < len(queries) - 1:
-                    time.sleep(self.delay_seconds)
+        last_page = max(1, max_pages)
+        for page in range(1, last_page + 1):
+            try:
+                html = self._fetch_search_page(page)
+                postings.extend(parse_saramin_search_html(html))
+            except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError) as error:
+                LOGGER.warning("Saramin request failed for page=%s: %s", page, error)
+                return []
+            except Exception as error:
+                LOGGER.warning("Saramin parsing failed for page=%s: %s", page, error)
+                return []
+
+            if page < last_page:
+                time.sleep(self.delay_seconds)
 
         return postings
 
-    def _fetch_search_page(self, query: str, page: int) -> str:
-        params = urlencode({"searchword": query, "recruitPage": page})
+    def _fetch_search_page(self, page: int) -> str:
         request = Request(
-            f"{SEARCH_URL}?{params}",
+            build_saramin_category_url(page),
             headers={
                 "User-Agent": (
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -131,6 +140,17 @@ class SaraminCollector(BaseCollector):
         with urlopen(request, timeout=self.timeout_seconds, context=context) as response:
             charset = response.headers.get_content_charset() or "utf-8"
             return response.read().decode(charset, errors="replace")
+
+
+def build_saramin_category_url(page: int) -> str:
+    parsed = urlparse(JOB_CATEGORY_URL)
+    params = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key != "recruitPage"
+    ]
+    params.append(("recruitPage", str(max(1, page))))
+    return urlunparse(parsed._replace(query=urlencode(params)))
 
 
 def parse_saramin_search_html(html: str) -> List[JobPosting]:
